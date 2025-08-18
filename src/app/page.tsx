@@ -1,103 +1,207 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { usePriorities } from '@/hooks/usePriorities';
+import { PriorityItem } from '@/components/PriorityItem';
+import { SortablePriorityItem } from '@/components/SortablePriorityItem';
+import { AddPriority } from '@/components/AddPriority';
+import { ImportExport } from '@/components/ImportExport';
+import { Toast } from '@/components/Toast';
+import { AnimatePresence } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+} from '@dnd-kit/modifiers';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [toast, setToast] = useState<{show: boolean; message: string; type: 'success' | 'error'}>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const {
+    priorities,
+    addPriority,
+    deletePriority,
+    reorderPriorities,
+    toggleComplete,
+    updateSubnote,
+    exportData,
+    importData
+  } = usePriorities();
+
+  const incompletePriorities = priorities.filter(p => !p.completed);
+  const completedPriorities = priorities.filter(p => p.completed);
+
+  const handleToggleComplete = (id: string) => {
+    const priority = priorities.find(p => p.id === id);
+    if (priority && !priority.completed) {
+      setToast({
+        show: true,
+        message: `Great job completing "${priority.text}"! 🎉`,
+        type: 'success'
+      });
+    }
+    toggleComplete(id);
+  };
+
+  const handleMoveUp = (id: string) => {
+    const currentIndex = priorities.findIndex(p => p.id === id);
+    if (currentIndex > 0) {
+      reorderPriorities(currentIndex, currentIndex - 1);
+    }
+  };
+
+  const handleMoveDown = (id: string) => {
+    const currentIndex = priorities.findIndex(p => p.id === id);
+    if (currentIndex < priorities.length - 1) {
+      reorderPriorities(currentIndex, currentIndex + 1);
+    }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id && over) {
+      // Get the actual index in the full priorities array
+      const fullOldIndex = priorities.findIndex(p => p.id === active.id);
+      const fullNewIndex = priorities.findIndex(p => p.id === over.id);
+      
+      reorderPriorities(fullOldIndex, fullNewIndex);
+    }
+  };
+
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chop Chop</h1>
+          <p className="text-gray-600">{today}</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="mb-6 flex justify-end">
+          <ImportExport 
+            onExport={() => {
+              exportData();
+              showToast('Data exported successfully! 📁');
+            }} 
+            onImport={async (file) => {
+              try {
+                await importData(file);
+                showToast('Data imported successfully! ✨');
+              } catch (error) {
+                showToast('Failed to import data. Please check the file format.', 'error');
+                throw error;
+              }
+            }} 
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+
+        <div className="space-y-4">
+          <AddPriority onAdd={addPriority} />
+          
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+          >
+            <SortableContext
+              items={incompletePriorities.map(p => p.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <AnimatePresence>
+                {incompletePriorities.map((priority, index) => (
+                  <SortablePriorityItem
+                    key={priority.id}
+                    priority={priority}
+                    onToggleComplete={handleToggleComplete}
+                    onUpdateSubnote={updateSubnote}
+                    onDelete={deletePriority}
+                    onMoveUp={handleMoveUp}
+                    onMoveDown={handleMoveDown}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < incompletePriorities.length - 1}
+                  />
+                ))}
+              </AnimatePresence>
+            </SortableContext>
+          </DndContext>
+
+          {completedPriorities.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-medium text-gray-700 mb-4">
+                Completed ({completedPriorities.length})
+              </h3>
+              <div className="space-y-3">
+                <AnimatePresence>
+                  {completedPriorities.map((priority) => (
+                    <PriorityItem
+                      key={priority.id}
+                      priority={priority}
+                      onToggleComplete={handleToggleComplete}
+                      onUpdateSubnote={updateSubnote}
+                      onDelete={deletePriority}
+                      onMoveUp={handleMoveUp}
+                      onMoveDown={handleMoveDown}
+                      canMoveUp={false}
+                      canMoveDown={false}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {priorities.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">
+                No priorities yet. Add one to get started!
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
     </div>
   );
 }
