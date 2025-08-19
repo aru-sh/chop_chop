@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Priority } from '@/types';
 import { ChevronDownIcon, ChevronUpIcon, TrashIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface PriorityItemProps {
   priority: Priority;
@@ -12,7 +14,7 @@ interface PriorityItemProps {
   onMoveDown: (id: string) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  dragHandleProps?: any;
+  dragHandleProps?: Record<string, unknown>;
 }
 
 export const PriorityItem = ({
@@ -35,7 +37,8 @@ export const PriorityItem = ({
   };
 
   const handleSubnoteKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
       handleSubnoteSubmit();
     }
     if (e.key === 'Escape') {
@@ -124,9 +127,9 @@ export const PriorityItem = ({
             value={subnoteText}
             onChange={(e) => setSubnoteText(e.target.value)}
             onKeyDown={handleSubnoteKeyPress}
-            placeholder="Add a sub-note..."
-            className="w-full p-2 text-sm border border-gray-200 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows={2}
+            placeholder="Add a note... (supports **markdown**). Press Ctrl+Enter to save."
+            className="w-full p-2 text-sm border border-gray-200 rounded resize-y focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[80px]"
+            rows={4}
           />
           <div className="flex gap-2 mt-2">
             <button
@@ -150,8 +153,12 @@ export const PriorityItem = ({
       </AnimatePresence>
 
       {priority.subnote && !isExpanded && (
-        <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-          {priority.subnote}
+        <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+          <div className="prose prose-sm max-w-none prose-headings:text-gray-700 prose-p:text-gray-600 prose-strong:text-gray-700 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-blockquote:border-l-blue-500 prose-ul:text-gray-600 prose-ol:text-gray-600">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {priority.subnote}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </motion.div>
