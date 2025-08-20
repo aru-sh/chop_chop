@@ -4,7 +4,8 @@ import { DayData } from '@/types';
 export const useLocalStorage = () => {
   const [data, setData] = useState<DayData>({
     date: new Date().toISOString().split('T')[0],
-    priorities: []
+    priorities: [],
+    recurringReminders: []
   });
 
   const STORAGE_KEY = 'chop-chop-data';
@@ -17,25 +18,33 @@ export const useLocalStorage = () => {
       try {
         const parsedData: DayData = JSON.parse(stored);
         if (parsedData.date === today) {
-          setData(parsedData);
+          // Ensure recurringReminders exists for backward compatibility
+          const updatedData = {
+            ...parsedData,
+            recurringReminders: parsedData.recurringReminders || []
+          };
+          setData(updatedData);
         } else {
-          // New day, start fresh but keep the date updated
+          // New day, start fresh but preserve recurring reminders
           setData({
             date: today,
-            priorities: []
+            priorities: [],
+            recurringReminders: parsedData.recurringReminders || []
           });
         }
       } catch (error) {
         console.error('Error parsing stored data:', error);
         setData({
           date: today,
-          priorities: []
+          priorities: [],
+          recurringReminders: []
         });
       }
     } else {
       setData({
         date: today,
-        priorities: []
+        priorities: [],
+        recurringReminders: []
       });
     }
   }, []);
@@ -64,9 +73,13 @@ export const useLocalStorage = () => {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target?.result as string) as DayData;
-          // Validate the structure
+          // Validate the structure and ensure backward compatibility
           if (imported.date && Array.isArray(imported.priorities)) {
-            saveData(imported);
+            const validatedData = {
+              ...imported,
+              recurringReminders: imported.recurringReminders || []
+            };
+            saveData(validatedData);
             resolve();
           } else {
             reject(new Error('Invalid data structure'));
